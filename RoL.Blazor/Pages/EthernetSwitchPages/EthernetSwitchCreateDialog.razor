@@ -1,0 +1,90 @@
+﻿@page "/EthernetSwitchCreateDialog"
+@using RoL.Dtos.EthernetSwitchDtos
+@using System.Text.Json
+@using RoL.Dtos
+@inject HttpClient Http
+
+<MudDialog DisableSidePadding="true">
+    <DialogContent>
+        <MudContainer xs="12" Class="mx-auto pa-4 justify-center my-4 mud-text-align-center" Style="max-height: 700px; width: 400px; overflow-y: scroll">
+            <b>Address</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_newEthernetSwitch.Address" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>Name</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_newEthernetSwitch.Name" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>Password</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_newEthernetSwitch.Password" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>Serial</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_newEthernetSwitch.Serial" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>Switch Model</b>
+            <MudItem xs="12" Class="d-flex flex-row">
+                <MudSelect Class="ml-1" @bind-Value="@_newEthernetSwitch.SwitchModel" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @if (_models != null)
+                    {
+                        foreach (var modelDto in _models)
+                        {
+                            var modelFullName = modelDto.Manufacturer + " | " + modelDto.Model;
+                            <MudSelectItem Value="@modelDto.Code">@modelFullName</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>Username</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_newEthernetSwitch.Username" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Create">Ok</MudButton>
+    </DialogActions>
+</MudDialog>
+<SnackBars @ref="_snackBars"></SnackBars>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+
+    private SnackBars? _snackBars;
+    private EthernetSwitchCreateDto _newEthernetSwitch = new();
+    private List<EthernetSwitchModelDto>? _models = new();
+
+    void Cancel() => MudDialog.Cancel();
+
+    protected override async void OnInitialized()
+    {
+        _models = await Http.GetFromJsonAsync<List<EthernetSwitchModelDto>>("ethernet-switch/models");
+    }
+    private async void Create()
+    {
+        var responseEthernetSwitch = await Http.PostAsJsonAsync("ethernet-switch/", _newEthernetSwitch);
+
+        if (responseEthernetSwitch.IsSuccessStatusCode)
+        {
+            if (_snackBars != null) await _snackBars.ShowSuccess();
+            await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
+        }
+        else
+        {
+            var errorContent = await responseEthernetSwitch.Content.ReadAsStringAsync();
+            var validationErrors = JsonSerializer.Deserialize<ValidationErrorDto>(errorContent)!;
+            
+            foreach (var error in validationErrors.Errors)
+            {
+                if (_snackBars != null) await _snackBars.ShowError($"{error.Field + ": " + error.Error}");
+            }
+        }
+    }
+}

@@ -1,0 +1,108 @@
+﻿@page "/EthernetSwitchUpdateDialog"
+@using RoL.Dtos.EthernetSwitchDtos
+@using System.Text.Json
+@using RoL.Dtos
+@inject HttpClient Http
+
+<MudDialog DisableSidePadding="true">
+    <DialogContent>
+        <MudContainer xs="12" Class="mx-auto px-4 justify-center my-4 mud-text-align-center" Style="max-height: 700px; width: 600px; overflow-y: scroll">
+            <b>Address</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_ethernetSwitchPutRequest.Address" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"></MudDivider>
+            <b>Name</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_ethernetSwitchPutRequest.Name" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"></MudDivider>
+            <b>Password</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_ethernetSwitchPutRequest.Password" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"></MudDivider>
+            <b>Serial</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_ethernetSwitchPutRequest.Serial" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"></MudDivider>
+            <b>Switch Model</b>
+            <MudItem xs="12" Class="d-flex flex-row">
+                <MudSelect Class="ml-1" @bind-Text="@_selectedSwitchModel" @bind-Value="@_ethernetSwitchPutRequest.SwitchModel" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @if (_models != null)
+                    {
+                        foreach (var modelDto in _models)
+                        {
+                            <MudSelectItem Value="@modelDto.Code">@modelDto.Manufacturer | @modelDto.Model</MudSelectItem>
+                        }
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"></MudDivider>
+            <b>Username</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_ethernetSwitchPutRequest.Username" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Update">Ok</MudButton>
+    </DialogActions>
+</MudDialog>
+<SnackBars @ref="_snackBars"></SnackBars>
+
+@code {
+
+    [CascadingParameter]
+    MudDialogInstance MudDialog { get; set; }
+
+    [Parameter]
+    public EthernetSwitchDto EthernetSwitch { get; set; } = new();
+
+    private SnackBars? _snackBars;
+    private EthernetSwitchUpdateDto _ethernetSwitchPutRequest = new();
+    private string _selectedSwitchModel = "";
+    private List<EthernetSwitchModelDto>? _models = new();
+
+    void Cancel() => MudDialog.Cancel();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _models = await Http.GetFromJsonAsync<List<EthernetSwitchModelDto>>("ethernet-switch/models");
+        if (_models != null)
+        {
+            var model = _models.FirstOrDefault(x => x.Code == EthernetSwitch.SwitchModel)!;
+
+            _ethernetSwitchPutRequest = new EthernetSwitchUpdateDto()
+            {
+                Address = EthernetSwitch.Address,
+                Name = EthernetSwitch.Name,
+                Serial = EthernetSwitch.Serial,
+                SwitchModel = EthernetSwitch.SwitchModel,
+                Username = EthernetSwitch.Username
+            };
+            _selectedSwitchModel = model.Manufacturer + " | " + model.Model;
+        }
+    }
+    private async void Update()
+    {
+        var responseLease = await Http.PutAsJsonAsync($"ethernet-switch/{EthernetSwitch.Id}", _ethernetSwitchPutRequest);
+        if (responseLease.IsSuccessStatusCode)
+        {
+            if (_snackBars != null) await _snackBars.ShowSuccess();
+            await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
+        }
+        else
+        {
+            var errorContent = await responseLease.Content.ReadAsStringAsync();
+            var validationErrors = JsonSerializer.Deserialize<ValidationErrorDto>(errorContent)!;
+            
+            foreach (var error in validationErrors.Errors)
+            {
+                if (_snackBars != null) await _snackBars.ShowError($"{error.Field + ": " + error.Error}");
+            }
+        }
+    }
+}

@@ -1,0 +1,89 @@
+﻿@page "/DHCPLeaseUpdateDialog"
+@using RoL.Dtos.DHCPDtos
+@using System.Text.Json
+@using RoL.Dtos
+@inject HttpClient Http
+
+<MudDialog DisableSidePadding="true">
+    <DialogContent>
+        <MudContainer xs="12" Class="mx-auto px-4 justify-center my-4 mud-text-align-center" Style="max-height: 700px; width: 600px; overflow-y: scroll">
+            <b>IP</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_leasePutRequest.Ip" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"></MudDivider>
+            <b>Mac</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_leasePutRequest.Mac" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"></MudDivider>
+            <b>Expires</b>
+            <MudItem xs="12" Class="d-flex flex-row">
+                <MudDatePicker Class="mr-1" @bind-Date="@_expiresCalendarNumber" Variant="Variant.Outlined" Margin="Margin.Dense"/>
+                <MudTimePicker Class="mr-1" @bind-Time="_expiresTime" Variant="Variant.Outlined" Margin="Margin.Dense"/>
+            </MudItem>
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Update">Ok</MudButton>
+    </DialogActions>
+</MudDialog>
+<SnackBars @ref="_snackBars"></SnackBars>
+
+@code {
+    [CascadingParameter]
+    MudDialogInstance MudDialog { get; set; }
+
+    [Parameter]
+    public string DhcpId { get; set; } = "";
+    [Parameter]
+    public DHCPLeaseDto Lease { get; set; } = new();
+
+    private SnackBars? _snackBars;
+    private DHCPLeaseUpdateDto _leasePutRequest = new();
+    private DateTime? _expiresCalendarNumber;
+    private TimeSpan? _expiresTime;
+    
+    void Cancel() => MudDialog.Cancel();
+
+    protected override void OnInitialized()
+    {
+        _leasePutRequest = new DHCPLeaseUpdateDto()
+        {
+            Ip = Lease.Ip,
+            Mac = Lease.Mac
+        };
+        _expiresCalendarNumber = Lease.Expires.Date;
+        _expiresTime = Lease.Expires.TimeOfDay;
+    }
+    private async void Update()
+    {
+        if (_expiresCalendarNumber == null && _expiresTime == null)
+        {
+            if (_snackBars != null) await _snackBars.ShowError("ExpiresTime value does not contain the necessary data");
+            return;
+        }
+
+        var expiresCalendarNumber = (DateTime) _expiresCalendarNumber!;
+        var expiresTime = (TimeSpan) _expiresTime!;
+        _leasePutRequest.Expires = expiresCalendarNumber.ToUniversalTime().Add(expiresTime);
+        
+        var responseLease = await Http.PutAsJsonAsync($"dhcp/{DhcpId}/lease/{Lease.Id}", _leasePutRequest);
+        if (responseLease.IsSuccessStatusCode)
+        {
+            if (_snackBars != null) await _snackBars.ShowSuccess();
+            await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
+        }
+        else
+        {
+            var errorContent = await responseLease.Content.ReadAsStringAsync();
+            var validationErrors = JsonSerializer.Deserialize<ValidationErrorDto>(errorContent)!;
+            
+            foreach (var error in validationErrors.Errors)
+            {
+                if (_snackBars != null) await _snackBars.ShowError($"{error.Field + ": " + error.Error}");
+            }
+        }
+    }
+}

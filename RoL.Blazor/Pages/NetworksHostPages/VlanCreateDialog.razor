@@ -1,0 +1,82 @@
+﻿@page "/VlanCreate"
+@using RoL.Dtos.HostNetworkDtos
+@using System.Text.Json
+@using RoL.Dtos
+@inject HttpClient Http
+
+<MudDialog  DisableSidePadding="true">
+    <DialogContent>
+        <MudContainer xs="12" Class="mx-auto px-4 justify-center my-4 mud-text-align-center" Style="max-height: 700px; width: 600px; overflow-y: scroll">
+            <b>Address</b>
+            @foreach(var address in _addresses)
+            {
+                <MudItem xs="12" Class="d-flex flex-row">
+                    <MudTextField Class="mr-1" @bind-Value="@address.Item" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" Class="ma-n1" OnClick="@(() => DeleteAddress(address))" />
+                </MudItem>
+            }
+            <MudIconButton Class="d-flex flex-row my-n1" Icon="@Icons.Material.Rounded.Add" OnClick="@AddAddress" Color="Color.Success" aria-label="add"></MudIconButton>
+            <MudDivider Class="mt-2 mb-1"></MudDivider>
+            <b>Parent</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_newVlan.Parent" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"></MudDivider>
+            <b>VlanId</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_newVlan.VlanId" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Create">Ok</MudButton>
+    </DialogActions>
+</MudDialog>
+<SnackBars @ref="_snackBars"></SnackBars>
+
+@code {
+    [CascadingParameter]
+    MudDialogInstance MudDialog { get; set; }
+    
+    private SnackBars? _snackBars;
+    private HostNetworkVlanCreateDto _newVlan = new();
+    private List<StringItem> _addresses = new();
+    
+    public class StringItem
+    {
+        public string Item { get; set; } = null!;
+    }
+    
+    void Cancel() => MudDialog.Cancel();
+    
+    private async void Create()
+    {
+        _newVlan.Addresses = new List<string>();
+        _newVlan.Addresses.AddRange(_addresses.Select(a => a.Item));
+        var response = await Http.PostAsJsonAsync("host/network/vlan/", _newVlan);
+        if (response.IsSuccessStatusCode)
+        {
+            await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
+            if (_snackBars != null) await _snackBars.ShowSuccess();
+        }
+        else
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            var validationErrors = JsonSerializer.Deserialize<ValidationErrorDto>(errorContent)!;
+
+            foreach (var error in validationErrors.Errors)
+            {
+                if (_snackBars != null) await _snackBars.ShowError($"{error.Field + ": " + error.Error}");
+            }
+        }
+    }
+    private void AddAddress()
+    {
+        _addresses.Add(new StringItem(){Item = string.Empty});
+    }
+    private void DeleteAddress(StringItem address)
+    {
+        _addresses.Remove(address);
+    }
+}

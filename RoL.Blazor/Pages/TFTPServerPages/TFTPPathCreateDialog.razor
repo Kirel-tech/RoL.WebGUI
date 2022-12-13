@@ -1,0 +1,60 @@
+﻿@page "/TftpPathCreateDialog"
+@using RoL.Dtos.TFTPDtos
+@using System.Text.Json
+@using RoL.Dtos
+@inject HttpClient Http
+
+<MudDialog  DisableSidePadding="true">
+    <DialogContent>
+        <MudContainer xs="12" Class="mx-auto px-4 justify-center my-4 mud-text-align-center" Style="max-height: 700px; width: 600px; overflow-y: scroll">
+            <b>ActualPath</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_newPath.ActualPath" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"></MudDivider>
+            <b>VirtualPath</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_newPath.VirtualPath" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"></MudDivider>
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Create">Ok</MudButton>
+    </DialogActions>
+</MudDialog>
+<SnackBars @ref="_snackBars"></SnackBars>
+
+@code {
+    [CascadingParameter]
+    MudDialogInstance MudDialog { get; set; }
+
+    [Parameter]
+    public string TftpId { get; set; } = "";
+    
+    private SnackBars? _snackBars;
+    private TftpPathCreateDto _newPath = new();
+
+    void Cancel() => MudDialog.Cancel();
+
+    private async void Create()
+    {
+        var responsePath = await Http.PostAsJsonAsync($"tftp/{TftpId}/path/", _newPath);
+        if (responsePath.IsSuccessStatusCode)
+        {
+            if (_snackBars != null) await _snackBars.ShowSuccess();
+            await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
+        }
+        else
+        {
+            var errorContent = await responsePath.Content.ReadAsStringAsync();
+            var validationErrors = JsonSerializer.Deserialize<ValidationErrorDto>(errorContent)!;
+
+            foreach (var error in validationErrors.Errors)
+            {
+                if (_snackBars != null) await _snackBars.ShowError($"{error.Field + ": " + error.Error}");
+            }
+        }
+    }
+}

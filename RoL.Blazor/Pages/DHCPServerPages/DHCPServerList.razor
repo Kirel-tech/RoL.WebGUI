@@ -1,0 +1,241 @@
+﻿@page "/DHCPServerList"
+@using RoL.Dtos
+@using RoL.Dtos.DHCPDtos
+@using System.Text
+@inject HttpClient Http
+@inject IDialogService DialogService
+
+<style>
+    div.myClass > div > div {
+        border-bottom: 1px solid lightgrey;
+    }
+</style>
+
+<MudTable Bordered="@true" Striped="@true"  Dense="@true" @ref="_table" ServerData="@(new Func<TableState, Task<TableData<DHCPServerDto>>>(ServerReload))" Breakpoint="Breakpoint.Sm" Hover="true" Loading="@_loading">
+    <ToolBarContent>
+        <MudText Class="small">Add DHCP</MudText>
+        <MudIconButton Class="float-left" Icon="@Icons.Material.Rounded.Add" Color="Color.Success" OnClick="@(() => ShowCreateDialog<DHCPServerCreateDialog>("Create DHCP"))" aria-label="add"></MudIconButton>
+        <MudSpacer/>
+        <MudTextField T="string" ValueChanged="@(OnSearch)" Placeholder="Search" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh><MudTableSortLabel Style="Width: 280px" SortLabel="Id" T="DHCPServerDto">Id</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel Style="Width: 1px" SortLabel="CreatedAt" T="DHCPServerDto">CreatedAt</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel Style="Width: 1px" SortLabel="UpdatedAt" T="DHCPServerDto">UpdatedAt</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel Style="Width: 1px" SortLabel="DNS" T="DHCPServerDto">DNS</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel Style="Width: 1px" SortLabel="Interface" T="DHCPServerDto">Interface</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel Style=" Width: 1px" SortLabel="Mask" T="DHCPServerDto">Mask</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel Style="Width: 1px" SortLabel="NTP" T="DHCPServerDto">NTP</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortLabel="Range" T="DHCPServerDto">Range</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel Style="Width: 1px" SortLabel="ServerID" T="DHCPServerDto">ServerID</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel Style=" Width: 1px" SortLabel="Enabled" T="DHCPServerDto">Enabled</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel Style=" Width: 1px" SortLabel="State" T="DHCPServerDto">State</MudTableSortLabel></MudTh>
+        <MudTh>Leases</MudTh>
+        <MudTh>Options</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Id">@context.Id</MudTd>
+        <MudTd DataLabel="CreatedAt">@Convert.ToDateTime(context.CreatedAt).ToString("dd/MM/yyyy")</MudTd>
+        <MudTd DataLabel="UpdatedAt">@Convert.ToDateTime(context.UpdatedAt).ToString("dd/MM/yyyy")</MudTd>
+        <MudTd DataLabel="DNS">@context.DNS</MudTd>
+        <MudTd DataLabel="Interface">@context.Interface</MudTd>
+        <MudTd DataLabel="Mask">@context.Mask</MudTd>
+        <MudTd DataLabel="NTP">@context.NTP</MudTd>
+        <MudTd DataLabel="Range">@context.Range</MudTd>
+        <MudTd DataLabel="ServerID">@context.ServerId</MudTd>
+        <MudTd DataLabel="Enabled">
+            @if (context.Enabled is false)
+            {
+                <MudChip Variant="Variant.Outlined">Not enabled</MudChip>
+            }
+            @if (context.Enabled)
+            {
+                <MudChip Variant="Variant.Outlined" Color="Color.Success">Enabled</MudChip>
+            }
+        </MudTd>
+        <MudTd DataLabel="State">
+            @if (context.State.Contains("error"))
+            {
+                <MudChip Variant="Variant.Outlined" Color="Color.Error">Error</MudChip>
+            }
+            @if (context.State.Contains("launched"))
+            {
+                <MudChip Variant="Variant.Outlined" Color="Color.Success">Launched</MudChip>
+            }
+            @if (context.State.Contains("stopped"))
+            {
+                <MudChip Variant="Variant.Outlined">Stopped</MudChip>
+            }
+        </MudTd>
+        <MudTd Style="white-space: nowrap; width: 1%;">
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="@(() => ShowLeases(context.Id.ToString()))">
+                @(_showLeases.GetValueOrDefault(context.Id.ToString())? "Hide" : "Show") Leases
+            </MudButton>
+        </MudTd>
+        <MudTd Style="white-space: nowrap; width: 1%;" DataLabel="Options">
+            <MudMenu Label="Options" Size="Size.Small" Dense="true" FullWidth="true" Direction="Direction.Start">
+                <MudMenuItem OnClick="@(() => ShowUpdateDialog(context))">Edit</MudMenuItem>
+                <MudMenuItem OnClick="@(() => Delete(context.Id))">Delete</MudMenuItem>
+            </MudMenu>
+        </MudTd>
+    </RowTemplate>
+    <ChildRowContent>
+    @if (_showLeases.GetValueOrDefault(context.Id.ToString()))
+    {
+      <MudTr>
+       <td colspan="13">
+    	<MudCard Elevation="0">
+            <MudCardContent Class="pa-0 myClass">
+                <MudTable Items="@_dhcpLeases[context.Id]" Context="Lease" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="1" HeaderClass="table-head-bordered border-bottom">
+                    <ToolBarContent>
+                        <MudText Class="small">Add lease </MudText>
+                        <MudIconButton Class="float-left" Size="Size.Small" Icon="@Icons.Material.Rounded.Add" Color="Color.Success" OnClick="@(() => ShowLeaseCreateDialog("Create lease", context.Id))" aria-label="add"></MudIconButton>
+                    </ToolBarContent>
+                    <HeaderContent>
+                        <MudTh>Id</MudTh>
+                        <MudTh>Created at</MudTh>
+                        <MudTh>Updated at</MudTh>
+                        <MudTh>IP</MudTh>
+                        <MudTh>Expires</MudTh>
+                        <MudTh>Mac</MudTh>
+                        <MudTh></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="Id">@Lease.Id</MudTd>
+                        <MudTd DataLabel="Created at">@Convert.ToDateTime(Lease.CreatedAt).ToString("dd/MM/yyyy")</MudTd>
+                        <MudTd DataLabel="Updated at">@Convert.ToDateTime(Lease.UpdatedAt).ToString("dd/MM/yyyy")</MudTd>
+                        <MudTd DataLabel="IP">@Lease.Ip</MudTd>
+                        <MudTd DataLabel="Expires">@Lease.Expires</MudTd>
+                        <MudTd DataLabel="Mac">@Lease.Mac</MudTd>
+                        <MudTd>
+                            <MudIconButton Size = "Size.Small" Icon="@Icons.Material.Filled.Delete" aria-label="delete" Color="Color.Error" OnClick="@(() => LeaseDelete(Lease.Id, context.Id))"></MudIconButton>
+                            <MudIconButton Size = "Size.Small" Icon="@Icons.Material.Filled.Edit" aria-label="edit" Color="Color.Default" OnClick="@(() => ShowLeaseUpdateDialog(context.Id, Lease))"></MudIconButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudCardContent>
+    	</MudCard>
+       </td>
+      </MudTr>
+    }
+    	</ChildRowContent>
+    <NoRecordsContent>
+        <MudText>No matching records found</MudText>
+    </NoRecordsContent>
+    <LoadingContent>
+        <MudText>Loading...</MudText>
+    </LoadingContent>
+    <PagerContent>
+        <MudTablePager/>
+    </PagerContent>
+</MudTable>
+<SnackBars @ref="_snackBars"></SnackBars>
+
+@code {
+    private string _searchString = "";
+    private SnackBars? _snackBars;
+    private bool _loading;
+    private MudTable<DHCPServerDto>? _table;
+
+    private Dictionary<string, bool> _showLeases = new();
+    private Dictionary<string, List<DHCPLeaseDto>> _dhcpLeases = new();
+
+    private async Task<TableData<DHCPServerDto>> ServerReload(TableState? state)
+    {
+        var uriBuilder = new StringBuilder();
+
+        if (!string.IsNullOrEmpty(state?.SortLabel))
+        {
+            uriBuilder.Append($"&orderBy={state.SortLabel}");
+            uriBuilder.Append(state.SortDirection == SortDirection.Descending ? "&orderDirection=desc" : "&orderDirection=asc");
+        }
+
+        if (!string.IsNullOrEmpty(_searchString))
+            uriBuilder.Append($"&search={_searchString}");
+        
+        uriBuilder.Append($"&page={state!.Page + 1}");
+        uriBuilder.Append($"&pageSize={state!.PageSize}");
+        
+        var uriSrt = uriBuilder.ToString();
+        uriSrt = uriSrt.Remove(0, 1);
+        
+        var responseDhcp = await Http.GetFromJsonAsync<PaginatedItemsDto<List<DHCPServerDto>>>("dhcp/?" + uriSrt);
+        await Task.Run(() =>
+        {
+            _showLeases.Clear();
+            if (responseDhcp == null) return;
+            foreach (var element in responseDhcp.Items)
+                _showLeases.Add(element.Id, false);
+        });
+        
+        foreach (var dhcp in responseDhcp.Items)
+        {
+            var dhcpLeases = await Http.GetFromJsonAsync<PaginatedItemsDto<List<DHCPLeaseDto>>>($"dhcp/{dhcp.Id}/lease/");
+            _dhcpLeases[dhcp.Id] = dhcpLeases!.Items;
+        }
+        return new TableData<DHCPServerDto>{TotalItems = responseDhcp.Pagination.TotalCount, Items = responseDhcp.Items};
+    }
+    private void ShowLeases(string id)
+    {
+        _showLeases[id] = !_showLeases[id];
+        foreach (var path in _showLeases.Where(p => p.Key != id))
+        {
+            _showLeases[path.Key] = false;
+        }
+    }
+    private async void ShowCreateDialog<TComponent>(string title) where TComponent : ComponentBase
+    {
+        var dialog = DialogService.Show<TComponent>(title);
+        var result = await dialog.Result;
+        if (result.Cancelled) return;
+        if (_table != null) await _table.ReloadServerData();
+    }
+    private async void ShowLeaseCreateDialog(string title, string dhcpId)
+    {
+        var parameters = new DialogParameters { ["DhcpId"] = dhcpId };
+        var dialog = DialogService.Show<DHCPLeaseCreateDialog>(title, parameters);
+        var result = await dialog.Result;
+        if (result.Cancelled) return;
+        if (_table != null) await _table.ReloadServerData();
+    }
+    private async void Delete(string dhcpId)
+    {
+        var parameters = new DialogParameters {{"EntityName", "delete"}};
+        var result = await DialogService.Show<DeleteDialog>("Delete", parameters).Result;
+        if (result.Cancelled) return;
+        
+        await Http.DeleteAsync($"dhcp/{dhcpId}");
+        if (_table != null) await _table.ReloadServerData();
+    }
+    private async void LeaseDelete(string leaseId, string dhcpId)
+    {
+        var parameters = new DialogParameters {{"EntityName", "delete"}};
+        var result = await DialogService.Show<DeleteDialog>("Delete", parameters).Result;
+        if (result.Cancelled) return;
+        
+        await Http.DeleteAsync($"dhcp/{dhcpId}/lease/{leaseId}");
+        if (_table != null) await _table.ReloadServerData();
+    }
+    private async void ShowUpdateDialog(DHCPServerDto dhcpDto)
+    {
+        var parameters = new DialogParameters { ["Dhcp"] = dhcpDto };
+        var dialog = DialogService.Show<DHCPServerUpdateDialog>("Edit DHCP", parameters);
+        var result = await dialog.Result;
+        if (result.Cancelled) return;
+        if (_table != null) await _table.ReloadServerData();
+    }
+    private async void ShowLeaseUpdateDialog(string dhcpId, DHCPLeaseDto leaseDto)
+    {
+        var parameters = new DialogParameters { ["Lease"] = leaseDto , ["DhcpId"] = dhcpId};
+        var dialog = DialogService.Show<DHCPLeaseUpdateDialog>("Edit lease", parameters);
+        var result = await dialog.Result;
+        if (result.Cancelled) return;
+        if (_table != null) await _table.ReloadServerData();
+    }
+    private void OnSearch(string text)
+    {
+        _searchString = text;
+        _table?.ReloadServerData();
+    }
+}

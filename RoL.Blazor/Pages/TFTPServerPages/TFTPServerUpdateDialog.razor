@@ -1,0 +1,74 @@
+﻿@page "/TftpServerUpdateDialog"
+@using RoL.Dtos.TFTPDtos
+@using System.Text.Json
+@using RoL.Dtos
+@inject HttpClient Http
+
+<MudDialog DisableSidePadding="true">
+    <DialogContent>
+        <MudContainer xs="12" Class="mx-auto pa-4 justify-center my-4 mud-text-align-center" Style="max-height: 700px; width: 400px; overflow-y: scroll">
+            <b>Address</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_tftpPutRequest.Address" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>Enabled</b>
+            <MudCheckBox @bind-Checked="@_tftpPutRequest.Enabled" Size="Size.Large" Color="@Color.Primary">
+                Enabled: @_tftpPutRequest.Enabled.ToString()
+            </MudCheckBox>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>Port</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_tftpPutRequest.Port" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Update">Ok</MudButton>
+    </DialogActions>
+</MudDialog>
+<SnackBars @ref="_snackBars"></SnackBars>
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+    
+    [Parameter] 
+    public TftpServerDto Tftp { get; set; } = new();
+
+    [Parameter]
+    public List<TftpPathDto> Paths { get; set; } = new();
+
+    private SnackBars? _snackBars;
+    private TftpServerUpdateDto _tftpPutRequest = new();
+
+    void Cancel() => MudDialog.Cancel();
+    
+    protected override void OnInitialized()
+    {
+        _tftpPutRequest = new TftpServerUpdateDto()
+        {
+            Address = Tftp.Address,
+            Enabled = Tftp.Enabled,
+            Port = Tftp.Port
+        };
+    }
+    private async void Update()
+    {
+        var response = await Http.PutAsJsonAsync("tftp/" + Tftp.Id, _tftpPutRequest);
+        if (response.IsSuccessStatusCode)
+        {
+            await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
+            if (_snackBars != null) await _snackBars.ShowSuccess();
+        }
+        else
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            var validationErrors = JsonSerializer.Deserialize<ValidationErrorDto>(errorContent)!;
+
+            foreach (var error in validationErrors.Errors)
+            {
+                if (_snackBars != null) await _snackBars.ShowError($"{error.Field + ": " + error.Error}");
+            }
+        }
+    }
+}
