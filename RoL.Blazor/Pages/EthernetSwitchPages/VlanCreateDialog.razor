@@ -1,0 +1,117 @@
+﻿@page "/VlanCreateDialog"
+@using RoL.Dtos.EthernetSwitchDtos
+@using Microsoft.AspNetCore.Components
+@using RoL.Dtos
+@using System.Text.Json
+@inject HttpClient Http
+
+<MudDialog  DisableSidePadding="true">
+    <DialogContent>
+        <MudContainer xs="12" Class="mx-auto px-4 justify-center my-4 mud-text-align-center" Style="max-height: 700px; width: 600px; overflow-y: scroll">
+            <b>Tagged Ports</b>
+            @foreach(var taggedPort in _taggedPorts)
+            {
+                <MudItem xs="12" Class="d-flex flex-row">
+                    <MudSelect Class="ml-1" @bind-Value="@taggedPort.Item" Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var port in _ports)
+                        {
+                            <MudSelectItem T="string" Value="@port.Id">@port.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" Class="ma-n1" OnClick="@(() => DeleteTaggedPort(taggedPort))"/>
+                </MudItem>
+            }
+            <MudIconButton Class="d-flex flex-row my-n1" Icon="@Icons.Material.Rounded.Add" OnClick="@AddTaggedPort" Color="Color.Success" aria-label="add"></MudIconButton>
+            <MudDivider Class="mt-2 mb-1"></MudDivider>
+            <b>Untagged Ports</b>
+            @foreach(var untaggedPort in _untaggedPorts)
+            {
+                <MudItem xs="12" Class="d-flex flex-row">
+                    <MudSelect Class="ml-1" @bind-Value="@untaggedPort.Item" Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var port in _ports)
+                        {
+                            <MudSelectItem T="string" Value="@port.Id">@port.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" Class="ma-n1" OnClick="@(() => DeleteUntaggedPort(untaggedPort))"/>
+                </MudItem>
+            }
+            <MudIconButton Class="d-flex flex-row my-n1" Icon="@Icons.Material.Rounded.Add" OnClick="@AddUntaggedPort" Color="Color.Success" aria-label="add"></MudIconButton>
+            <MudDivider Class="mt-2 mb-1"></MudDivider>
+            <b>Vlan Id</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_newVlan.VlanId" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Create">Ok</MudButton>
+    </DialogActions>
+</MudDialog>
+<SnackBars @ref="_snackBars"></SnackBars>
+@code {
+    [CascadingParameter]
+    MudDialogInstance MudDialog { get; set; }
+
+    [Parameter]
+    public string EthernetSwitchId { get; set; } = "";
+    
+    private SnackBars? _snackBars;
+    private EthernetSwitchVlanCreateDto _newVlan = new();
+    private List<StringItem> _taggedPorts = new();
+    private List<StringItem> _untaggedPorts = new();
+    private List<EthernetSwitchPortDto> _ports = new();
+
+    public class StringItem
+    {
+        public string Item { get; set; } = null!;
+    }
+    
+    void Cancel() => MudDialog.Cancel();
+
+    private async void Create()
+    {
+        _newVlan.TaggedPorts = new List<string>();
+        _newVlan.UntaggedPorts = new List<string>();
+        _newVlan.TaggedPorts.AddRange(_taggedPorts.Select(s => s.Item));
+        _newVlan.UntaggedPorts.AddRange(_untaggedPorts.Select(a => a.Item));
+        var response = await Http.PostAsJsonAsync($"ethernet-switch/{EthernetSwitchId}/vlan", _newVlan);
+        if (response.IsSuccessStatusCode)
+        {
+            if (_snackBars != null) await _snackBars.ShowSuccess();
+            await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
+        }
+        else
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            var validationErrors = JsonSerializer.Deserialize<ValidationErrorDto>(errorContent)!;
+
+            foreach (var error in validationErrors.Errors)
+            {
+                if (_snackBars != null) await _snackBars.ShowError($"{error.Field + ": " + error.Error}");
+            }
+        }
+    }
+    private void AddUntaggedPort()
+    {
+        _untaggedPorts.Add(new StringItem(){Item = string.Empty});
+    }
+    private void DeleteUntaggedPort(StringItem port)
+    {
+        _untaggedPorts.Remove(port);
+    }
+    private void AddTaggedPort()
+    {
+        _taggedPorts.Add(new StringItem(){Item = string.Empty});
+    }
+    private void DeleteTaggedPort(StringItem port)
+    {
+        _taggedPorts.Remove(port);
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        var response = await Http.GetFromJsonAsync<PaginatedItemsDto<List<EthernetSwitchPortDto>>>($"ethernet-switch/{EthernetSwitchId}/port/");
+        if (response != null) _ports = response.Items;
+    }
+}

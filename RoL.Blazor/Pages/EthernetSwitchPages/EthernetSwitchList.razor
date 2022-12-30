@@ -1,0 +1,276 @@
+﻿@page "/EthernetSwitchList"
+@using RoL.Dtos
+@using System.Text
+@using RoL.Dtos.EthernetSwitchDtos
+@inject HttpClient Http
+@inject IDialogService DialogService
+
+<style>
+    div.myClass > div > div {
+        border-bottom: 1px solid lightgrey;
+    }
+</style>
+
+<MudTable Bordered="@true" Striped="@true" Dense="@true" @ref="_table" ServerData="@(new Func<TableState, Task<TableData<EthernetSwitchDto>>>(ServerReload))" Breakpoint="Breakpoint.Sm" Hover="true" Loading="@_loading">
+    <ToolBarContent>
+        <MudText Class="small">Add Ethernet Switch</MudText>
+        <MudIconButton Class="float-left" Icon="@Icons.Material.Rounded.Add" Color="Color.Success" OnClick="@(() => ShowCreateDialog<EthernetSwitchCreateDialog>("Create Ethernet Switch"))" aria-label="add"></MudIconButton>
+        <MudSpacer/>
+        <MudTextField T="string" ValueChanged="@(OnSearch)" Placeholder="Search" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh><MudTableSortLabel SortLabel="Id" T="EthernetSwitchDto">Id</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortLabel="CreatedAt" T="EthernetSwitchDto">CreatedAt</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortLabel="UpdatedAt" T="EthernetSwitchDto">UpdatedAt</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortLabel="Address" T="EthernetSwitchDto">Address</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortLabel="Name" T="EthernetSwitchDto">Name</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortLabel="Serial" T="EthernetSwitchDto">Serial</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortLabel="Switch Model" T="EthernetSwitchDto">Switch Model</MudTableSortLabel></MudTh>
+        <MudTh><MudTableSortLabel SortLabel="Username" T="EthernetSwitchDto">Username</MudTableSortLabel></MudTh>
+        <MudTh>Switch elements</MudTh>
+        <MudTh>Options</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Id">@context.Id</MudTd>
+        <MudTd DataLabel="CreatedAt">@context.CreatedAt.ToString("dd/MM/yyyy")</MudTd>
+        <MudTd DataLabel="UpdatedAt">@context.UpdatedAt.ToString("dd/MM/yyyy")</MudTd>
+        <MudTd DataLabel="Address">@context.Address</MudTd>
+        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="Serial">@context.Serial</MudTd>
+        @if (_models != null)
+        {
+            foreach (var modelDto in _models.Where(modelDto => context.SwitchModel == modelDto.Code))
+            {
+                <MudTd DataLabel="Switch Model">@modelDto.Manufacturer @modelDto.Model</MudTd>
+            }
+        }
+        <MudTd DataLabel="Username">@context.Username</MudTd>
+        <MudTd Style="white-space: nowrap; width: 1%;">
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="@(() => ShowMenu(context.Id.ToString()))">
+                @(_showMenu.GetValueOrDefault(context.Id.ToString())? "Hide" : "Show") Elements
+            </MudButton>
+        </MudTd>
+        <MudTd Style="white-space: nowrap; width: 1%;" DataLabel="Options">
+            <MudMenu Label="Options" Size="Size.Small" Dense="true" FullWidth="true" Direction="Direction.Start">
+                <MudMenuItem OnClick="@(() => ShowUpdateDialog(context))">Edit</MudMenuItem>
+                <MudMenuItem OnClick="@(() => Delete(context.Id))">Delete</MudMenuItem>
+            </MudMenu>
+        </MudTd>
+    </RowTemplate>
+    <ChildRowContent>
+    @if (_showMenu.GetValueOrDefault(context.Id.ToString()))
+    {
+        <MudTr>
+        <td colspan="10">
+            <MudCard Elevation="0">
+                <MudCardContent Class="pa-2 myClass">
+                    <MudGrid>
+                    <MudItem xs="6">
+                        <MudTable Items="@_ethernetSwitchPorts[context.Id]" Context="Ports"  Hover="true" Breakpoint="Breakpoint.Sm" Elevation="1" HeaderClass="table-head-bordered border-bottom">
+                            <ToolBarContent>
+                                <MudText Class="small">Add Port</MudText>
+                                <MudIconButton Class="float-left" Size="Size.Small" Icon="@Icons.Material.Rounded.Add" Color="Color.Success" OnClick="@(() => ShowEthernetSwitchElementCreateDialog<PortCreateDialog>("Create Port", context.Id))" aria-label="add"></MudIconButton>
+                            </ToolBarContent>
+                            <HeaderContent>
+                                <MudTh Style="font-size: 12px">Id</MudTh>
+                                <MudTh Style="font-size: 12px; Width: 1px">Created at</MudTh>
+                                <MudTh Style="font-size: 12px; Width: 1px">Updated at</MudTh>
+                                <MudTh Style="font-size: 12px; Width: 1px">Name</MudTh>
+                                <MudTh Style="font-size: 12px; Width: 1px">PoeType</MudTh>
+                                <MudTh Style="font-size: 12px; Width: 1px">PvId</MudTh>
+                                <MudTh Style="font-size: 12px; Width: 1px">PoeEnabled</MudTh>
+                                <MudTh></MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd Style="font-size: 12px" DataLabel="Id">@Ports.Id</MudTd>
+                                <MudTd Style="font-size: 13px" DataLabel="Created at">@Ports.CreatedAt.ToString("dd/MM/yyyy")</MudTd>
+                                <MudTd Style="font-size: 13px" DataLabel="Updated at">@Ports.UpdatedAt.ToString("dd/MM/yyyy")</MudTd>
+                                <MudTd Style="font-size: 13px" DataLabel="Name">@Ports.Name</MudTd>
+                                <MudTd Style="font-size: 13px" DataLabel="PoeType">@Ports.PoeType</MudTd>
+                                <MudTd Style="font-size: 13px" DataLabel="PvId">@Ports.PvId</MudTd>
+                                <MudTd Style="font-size: 13px" DataLabel="PoeEnabled">@Ports.PoeEnabled</MudTd>
+                                <MudTd>
+                                    <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" aria-label="delete" Color="Color.Error" OnClick="@(() => EthernetSwitchElementDelete(context.Id, Ports.Id, "port"))"></MudIconButton>
+                                    <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Edit" aria-label="edit" Color="Color.Default" OnClick="@(() => ShowEthernetSwitchElementUpdateDialog<EthernetSwitchPortDto, PortUpdateDialog>(context.Id, Ports, "Port"))"></MudIconButton>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudItem>
+                        <MudItem xs="6">
+                        <MudTable Items="@_ethernetSwitchVlans[context.Id]" Context="Vlans" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="1" HeaderClass="table-head-bordered border-bottom">
+                            <ToolBarContent>
+                                <MudText Class="small">Add Vlan</MudText>
+                                <MudIconButton Class="float-left" Size="Size.Small" Icon="@Icons.Material.Rounded.Add" Color="Color.Success" OnClick="@(() => ShowEthernetSwitchElementCreateDialog<VlanCreateDialog>("Create Vlan", context.Id))" aria-label="add"></MudIconButton>
+                            </ToolBarContent>
+                            <HeaderContent>
+                                <MudTh Style="font-size: 12px">Id</MudTh>
+                                <MudTh Style="font-size: 12px">Created at</MudTh>
+                                <MudTh Style="font-size: 12px">Updated at</MudTh>
+                                <MudTh Style="font-size: 12px">VlanId</MudTh>
+                                <MudTh Style="font-size: 12px">TaggedPorts</MudTh>
+                                <MudTh Style="font-size: 12px">UntaggedPorts</MudTh>
+                                <MudTh></MudTh>
+                            </HeaderContent>
+                            <RowTemplate>
+                                <MudTd Style="font-size: 12px" DataLabel="Id">@Vlans.Id</MudTd>
+                                <MudTd Style="font-size: 13px" DataLabel="CreatedAt">@Vlans.CreatedAt.ToString("dd/MM/yyyy")</MudTd>
+                                <MudTd Style="font-size: 13px" DataLabel="UpdatedAt">@Vlans.UpdatedAt.ToString("dd/MM/yyyy")</MudTd>
+                                <MudTd Style="font-size: 13px" DataLabel="VlanId">@Vlans.VlanId</MudTd>
+                                <MudTd Style="font-size: 13px" DataLabel="TaggedPorts">
+                                    @foreach (var portId in Vlans.TaggedPorts)
+                                    {
+                                        foreach (var port in _ethernetSwitchPorts[context.Id].Where(port => portId == port.Id))
+                                        {
+                                            @port.Name<br />
+                                        }
+                                    }
+                                </MudTd>
+                                <MudTd Style="font-size: 13px" DataLabel="UntaggedPorts">
+                                    @foreach (var portId in Vlans.UntaggedPorts)
+                                    {
+                                        foreach (var port in _ethernetSwitchPorts[context.Id].Where(port => portId == port.Id))
+                                        {
+                                            @port.Name<br />
+                                        }
+                                    }
+                                </MudTd>
+                                <MudTd>
+                                    <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Delete" aria-label="delete" Color="Color.Error" OnClick="@(() => EthernetSwitchElementDelete(context.Id, Vlans.Id, "vlan"))"></MudIconButton>
+                                    <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Edit" aria-label="edit" Color="Color.Default" OnClick="@(() => ShowEthernetSwitchElementUpdateDialog<EthernetSwitchVlanDto, VlanUpdateDialog>(context.Id, Vlans, "Vlan"))"></MudIconButton>
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    </MudItem>
+                    </MudGrid>
+                </MudCardContent>
+            </MudCard>
+        </td>
+    </MudTr>
+    }
+    	</ChildRowContent>
+    <NoRecordsContent>
+        <MudText>No matching records found</MudText>
+    </NoRecordsContent>
+    <LoadingContent>
+        <MudText>Loading...</MudText>
+    </LoadingContent>
+    <PagerContent>
+        <MudTablePager/>
+    </PagerContent>
+</MudTable>
+<SnackBars @ref="_snackBars"></SnackBars>
+
+@code {
+    private string _searchString = "";
+    private SnackBars? _snackBars;
+    private bool _loading;
+    private MudTable<EthernetSwitchDto>? _table;
+    private List<EthernetSwitchModelDto>? _models;
+
+    private Dictionary<string, bool> _showMenu = new();
+    private Dictionary<string, List<EthernetSwitchPortDto>> _ethernetSwitchPorts = new();
+    private Dictionary<string, List<EthernetSwitchVlanDto>> _ethernetSwitchVlans = new();
+
+    private async Task<TableData<EthernetSwitchDto>> ServerReload(TableState? state)
+    {
+        var uriBuilder = new StringBuilder();
+
+        if (!string.IsNullOrEmpty(state?.SortLabel))
+        {
+            uriBuilder.Append($"&orderBy={state.SortLabel}");
+            uriBuilder.Append(state.SortDirection == SortDirection.Descending ? "&orderDirection=desc" : "&orderDirection=asc");
+        }
+
+        if (!string.IsNullOrEmpty(_searchString))
+            uriBuilder.Append($"&search={_searchString}");
+        
+        uriBuilder.Append($"&page={state!.Page + 1}");
+        uriBuilder.Append($"&pageSize={state!.PageSize}");
+        
+        var uriSrt = uriBuilder.ToString();
+        uriSrt = uriSrt.Remove(0, 1);
+        
+        var responseEthernetSwitch = await Http.GetFromJsonAsync<PaginatedItemsDto<List<EthernetSwitchDto>>>("ethernet-switch/?" + uriSrt);
+        await Task.Run(() =>
+        {
+            _showMenu.Clear();
+            if (responseEthernetSwitch == null) return;
+            foreach (var element in responseEthernetSwitch.Items)
+                _showMenu.Add(element.Id, false);
+        });
+        
+        _models = await Http.GetFromJsonAsync<List<EthernetSwitchModelDto>>("ethernet-switch/models");
+        
+        foreach (var ethernetSwitch in responseEthernetSwitch.Items)
+        {
+            var ethernetSwitchPorts = await Http.GetFromJsonAsync<PaginatedItemsDto<List<EthernetSwitchPortDto>>>($"ethernet-switch/{ethernetSwitch.Id}/port/");
+            _ethernetSwitchPorts[ethernetSwitch.Id] = ethernetSwitchPorts!.Items;
+            var ethernetSwitchVlans = await Http.GetFromJsonAsync<PaginatedItemsDto<List<EthernetSwitchVlanDto>>>($"ethernet-switch/{ethernetSwitch.Id}/vlan");
+            _ethernetSwitchVlans[ethernetSwitch.Id] = ethernetSwitchVlans!.Items;
+        }
+        return new TableData<EthernetSwitchDto>{TotalItems = responseEthernetSwitch.Pagination.TotalCount, Items = responseEthernetSwitch.Items};
+    }
+    private void ShowMenu(string id)
+    {
+        _showMenu[id] = !_showMenu[id];
+        foreach (var path in _showMenu.Where(p => p.Key != id))
+        {
+            _showMenu[path.Key] = false;
+        }
+    }
+    private async void ShowCreateDialog<TComponent>(string title) where TComponent : ComponentBase
+    {
+        var dialog = DialogService.Show<TComponent>(title);
+        var result = await dialog.Result;
+        if (result.Cancelled) return;
+        if (_table != null) await _table.ReloadServerData();
+    }
+    private async void ShowEthernetSwitchElementCreateDialog<TComponent>(string title, string ethernetSwitchId) where TComponent : ComponentBase
+    {
+         var parameters = new DialogParameters { ["EthernetSwitchId"] = ethernetSwitchId };
+         var dialog = DialogService.Show<TComponent>(title, parameters);
+         var result = await dialog.Result;
+         if (result.Cancelled) return;
+         if (_table != null) await _table.ReloadServerData();
+    }
+    private async void Delete(string ethernetSwitchId)
+    {
+        var parameters = new DialogParameters {{"EntityName", "delete"}};
+        var result = await DialogService.Show<DeleteDialog>("Delete", parameters).Result;
+        if (result.Cancelled) return;
+        
+        await Http.DeleteAsync($"ethernet-switch/{ethernetSwitchId}");
+        if (_table != null) await _table.ReloadServerData();
+    }
+    private async void EthernetSwitchElementDelete(string ethernetSwitchId, string elementId, string elementName)
+    {
+        var parameters = new DialogParameters {{"EntityName", "delete"}};
+        var result = await DialogService.Show<DeleteDialog>("Delete", parameters).Result;
+        if (result.Cancelled) return;
+        
+        await Http.DeleteAsync($"ethernet-switch/{ethernetSwitchId}/{elementName}/{elementId}");
+        if (_table != null) await _table.ReloadServerData();
+    }
+    private async void ShowUpdateDialog(EthernetSwitchDto ethernetSwitchDto)
+    {
+        var parameters = new DialogParameters { ["EthernetSwitch"] = ethernetSwitchDto };
+        var dialog = DialogService.Show<EthernetSwitchUpdateDialog>("Edit ethernet switch", parameters);
+        var result = await dialog.Result;
+        if (result.Cancelled) return;
+        if (_table != null) await _table.ReloadServerData();
+    }
+    private async void ShowEthernetSwitchElementUpdateDialog<TDto, TComponent>(string ethernetSwitchId, TDto dto, string elementName) where TComponent : ComponentBase
+    {
+        var parameters = new DialogParameters { [elementName] = dto, ["EthernetSwitchId"] = ethernetSwitchId };
+        var dialog = DialogService.Show<TComponent>($"Edit {elementName}", parameters);
+        var result = await dialog.Result;
+        if (result.Cancelled) return;
+        if (_table != null) await _table.ReloadServerData();
+    }
+    private void OnSearch(string text)
+    {
+        _searchString = text;
+        _table?.ReloadServerData();
+    }
+}
