@@ -5,5 +5,5 @@ public class HostNetworkVlanUpdateDto
     /// <summary>
     /// Addresses list
     /// </summary>
-    public List<string> Addresses { get; set; }
+    public List<string> Addresses { get; set; } = new();
 }

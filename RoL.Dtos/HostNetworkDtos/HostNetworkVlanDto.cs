@@ -5,17 +5,17 @@ public class HostNetworkVlanDto
     /// <summary>
     /// Addresses list
     /// </summary>
-    public List<string> Addresses { get; set; }
+    public List<string> Addresses { get; set; } = new();
     /// <summary>
     /// Name interface full nam
     /// </summary>
-    public string Name { get; set; }
+    public string Name { get; set; } = "";
     /// <summary>
     /// Parent interface name
     /// </summary>
-    public string Parent { get; set; }
+    public string Parent { get; set; } = "";
     /// <summary>
     /// Id of the vlan
     /// </summary>
-    public int VlanId { get; set; }
+    public int VlanId { get; set; } = 0;
 }

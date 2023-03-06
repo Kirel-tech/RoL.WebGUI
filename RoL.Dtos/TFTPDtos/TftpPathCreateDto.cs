@@ -2,6 +2,6 @@
 
 public class TftpPathCreateDto
 {
-    public string ActualPath { get; set; }
-    public string VirtualPath { get; set; }
+    public string ActualPath { get; set; } = "";
+    public string VirtualPath { get; set; } = "";
 }
