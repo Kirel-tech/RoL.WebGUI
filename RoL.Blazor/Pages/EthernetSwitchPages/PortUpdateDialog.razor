@@ -1,0 +1,99 @@
+﻿@page "/PortUpdateDialog"
+@using RoL.Dtos.EthernetSwitchDtos
+@using RoL.Dtos
+@using System.Text.Json
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<MudDialog DisableSidePadding="true">
+    <DialogContent>
+        <MudContainer xs="12" Class="mx-auto px-4 justify-center my-4 mud-text-align-center" Style="max-height: 700px; width: 600px; overflow-y: scroll">
+            <b>Name</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_portPutRequest.Name" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"></MudDivider>
+            <b>PoeEnabled</b>
+            <MudCheckBox @bind-Checked="@_portPutRequest.PoeEnabled" Size="Size.Large" Color="@Color.Primary">
+                Enabled: @_portPutRequest.PoeEnabled.ToString()
+            </MudCheckBox>
+            <MudDivider Class="mt-2 mb-1"></MudDivider>
+            <b>PoeType</b>
+            <MudItem xs="12" Class="d-flex flex-row">
+                <MudSelect Class="ml-1" @bind-Value="@_portPutRequest.PoeType" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem Value="@("poe")"></MudSelectItem>
+                    <MudSelectItem Value="@("poe+")"></MudSelectItem>
+                    <MudSelectItem Value="@("passive24")"></MudSelectItem>
+                    <MudSelectItem Value="@("none")"></MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"></MudDivider>
+            <b>PvId</b>
+            <MudItem xs="12" Class="d-flex flex-row">
+            <MudSelect Class="ml-1" @bind-Value="@_portPutRequest.PvId" Variant="Variant.Outlined" Margin="Margin.Dense">
+                @if (_vlansId != null)
+                {
+                    foreach (var vlanId in _vlansId)
+                    {
+                        <MudSelectItem Value="@vlanId">@vlanId</MudSelectItem>
+                    }
+                }
+            </MudSelect>
+            </MudItem>
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Update">Ok</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    MudDialogInstance MudDialog { get; set; }
+
+    [Parameter]
+    public string EthernetSwitchId { get; set; } = "";
+    [Parameter]
+    public EthernetSwitchPortDto Port { get; set; } = new();
+
+    private EthernetSwitchPortUpdateDto _portPutRequest = new();
+    private List<int>? _vlansId = new();
+    
+    void Cancel() => MudDialog.Cancel();
+
+    protected override void OnInitialized()
+    {
+        _portPutRequest = new EthernetSwitchPortUpdateDto()
+        {
+            Name = Port.Name,
+            PoeEnabled = Port.PoeEnabled,
+            PoeType = Port.PoeType,
+            PvId = Port.PvId
+        };
+    }
+    private async void Update()
+    {
+        var responsePort = await Http.PutAsJsonAsync($"ethernet-switch/{EthernetSwitchId}/port/{Port.Id}", _portPutRequest);
+        if (responsePort.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Success", Severity.Success, options => options.CloseAfterNavigation = true);
+            await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
+        }
+        else
+        {
+            var errorContent = await responsePort.Content.ReadAsStringAsync();
+            var validationErrors = JsonSerializer.Deserialize<ValidationErrorDto>(errorContent)!;
+
+            foreach (var error in validationErrors.Errors)
+            {
+                Snackbar.Add($"{error.Field + ": " + error.Error}", Severity.Error, options => options.CloseAfterNavigation = true);
+            }
+        }
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        var response = await Http.GetFromJsonAsync<PaginatedItemsDto<List<EthernetSwitchVlanDto>>>($"ethernet-switch/{EthernetSwitchId}/vlan/");
+        if (response != null) _vlansId = response.Items.Select(id => id.VlanId).ToList();
+    }
+}

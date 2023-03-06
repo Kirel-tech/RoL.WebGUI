@@ -1,0 +1,107 @@
+﻿@page "/BridgeCreate"
+@using RoL.Dtos.HostNetworkDtos
+@using System.Text.Json
+@using RoL.Dtos
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<MudDialog  DisableSidePadding="true">
+    <DialogContent>
+        <MudContainer xs="12" Class="mx-auto px-4 justify-center my-4 mud-text-align-center" Style="max-height: 700px; width: 600px; overflow-y: scroll">
+            <b>Name</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_newBridge.Name" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"></MudDivider>
+            <b>Address</b>
+            @foreach (var address in _addresses)
+            {
+                <MudItem xs="12" Class="d-flex flex-row">
+                    <MudTextField Class="mr-1" @bind-Value="@address.Item" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" Class="ma-n1" OnClick="@(() => DeleteAddress(address))"/>
+                </MudItem>
+            }
+            <MudIconButton Class="d-flex flex-row my-n1" Icon="@Icons.Material.Rounded.Add" OnClick="@AddAddress" Color="Color.Success" aria-label="add"></MudIconButton>
+            <MudDivider Class="mt-2 mb-1"></MudDivider>
+            <b>Slaves</b>
+            @foreach (var slave in _slaves)
+            {
+                <MudItem xs="12" Class="d-flex flex-row">
+                    <MudSelect Class="ml-1" @bind-Value="@slave.Item" Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var vlan in _vlans)
+                        {
+                            <MudSelectItem T="string" Value="@vlan.Name">@vlan.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" Class="ma-n1" OnClick="@(() => DeleteSlave(slave))"/>
+                </MudItem>
+            }
+            <MudIconButton Class="d-flex flex-row my-n1" Icon="@Icons.Material.Rounded.Add" OnClick="@AddSlaves" Color="Color.Success" aria-label="add"></MudIconButton>
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Create">Ok</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    MudDialogInstance MudDialog { get; set; }
+    
+    private HostNetworkBridgeCreateDto _newBridge = new();
+    private readonly List<StringItem> _addresses = new();
+    private readonly List<StringItem> _slaves = new();
+    private List<HostNetworkVlanDto>? _vlans = new();
+
+    public class StringItem
+    {
+        public string Item { get; set; } = "";
+    }
+    
+    void Cancel() => MudDialog.Cancel();
+
+    private async void Create()
+    {
+        _newBridge.Addresses = new List<string>();
+        _newBridge.Slaves = new List<string>();
+        _newBridge.Slaves.AddRange(_slaves.Select(s => s.Item));
+        _newBridge.Addresses.AddRange(_addresses.Select(a => a.Item));
+        var response = await Http.PostAsJsonAsync("host/network/bridge/", _newBridge);
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Success", Severity.Success, options => options.CloseAfterNavigation = true);
+            await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
+        }
+        else
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            var validationErrors = JsonSerializer.Deserialize<ValidationErrorDto>(errorContent)!;
+
+            foreach (var error in validationErrors.Errors)
+            {
+                Snackbar.Add($"{error.Field + ": " + error.Error}", Severity.Error, options => options.CloseAfterNavigation = true);
+            }
+        }
+    }
+    private void AddAddress()
+    {
+        _addresses.Add(new StringItem(){Item = string.Empty});
+    }
+    private void DeleteAddress(StringItem address)
+    {
+        _addresses.Remove(address);
+    }
+    private void AddSlaves()
+    {
+        _slaves.Add(new StringItem(){Item = string.Empty});
+    }
+    private void DeleteSlave(StringItem slave)
+    {
+        _slaves.Remove(slave);
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        _vlans = await Http.GetFromJsonAsync<List<HostNetworkVlanDto>>("host/network/vlan/");
+    }
+}

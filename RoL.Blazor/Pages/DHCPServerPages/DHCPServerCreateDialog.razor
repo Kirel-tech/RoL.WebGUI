@@ -1,0 +1,154 @@
+﻿@page "/DHCPServerCreateDialog"
+@using RoL.Dtos.DHCPDtos
+@using RoL.Dtos.HostNetworkDtos
+@using System.Text.Json
+@using RoL.Dtos
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<MudDialog DisableSidePadding="true">
+    <DialogContent>
+        <MudContainer xs="12" Class="mx-auto pa-4 justify-center my-4 mud-text-align-center" Style="max-height: 700px; width: 400px; overflow-y: scroll">
+            <b>DNS</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_newDhcp.DNS" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>Interface</b>
+            <MudItem xs="12" Class="d-flex flex-row">
+            <MudSelect Class="ml-1" @bind-Value="@_newDhcp.Interface" Variant="Variant.Outlined" Margin="Margin.Dense">
+            @foreach (var name in _interfaceNames)
+            {
+                <MudSelectItem T="string" Value="@name.Remove(0,4)">@name</MudSelectItem>
+            }
+            </MudSelect>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>Gateway</b>
+            <MudItem xs="12">
+                <MudSelect Class="ml-1" @bind-Value="@_newDhcp.Gateway" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @if (_newDhcp.Interface != "")
+                    {
+                        var iPs = GetIPs(_newDhcp.Interface);
+                        foreach (var ip in iPs)
+                        {
+                            <MudSelectItem Value="@ip[..^3]">@ip[..^3]</MudSelectItem>
+                        }
+                    }
+                </MudSelect>    
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>Server ID</b>
+            <MudItem xs="12" Class="d-flex flex-row">
+            <MudSelect Class="ml-1" @bind-Value="@_newDhcp.ServerId" Variant="Variant.Outlined" Margin="Margin.Dense">
+               @if (_newDhcp.Interface != "")
+                {
+                    var iPs = GetIPs(_newDhcp.Interface);
+                    foreach (var ip in iPs)
+                    {
+                        <MudSelectItem Value="@ip[..^3]">@ip[..^3]</MudSelectItem>
+                    }
+                }
+            </MudSelect>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>Lease time</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_newDhcp.LeaseTime" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>Mask</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_newDhcp.Mask" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>NTP</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_newDhcp.NTP" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>Port</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_newDhcp.Port" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>Range</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_newDhcp.Range" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>Enabled</b>
+            <MudCheckBox @bind-Checked="@_newDhcp.Enabled" Size="Size.Large" Color="@Color.Primary">
+                Enabled: @_newDhcp.Enabled.ToString()
+            </MudCheckBox>
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Create">Ok</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+
+    private DHCPServerCreateDto _newDhcp = new();
+    private List<string> _interfaceNames = new();
+    private List<string> _addresses = new();
+    private List<HostNetworkVlanDto>? _vlans = new();
+    private List<HostNetworkBridgeDto>? _bridges = new();
+
+    void Cancel() => MudDialog.Cancel();
+
+    protected override async void OnInitialized()
+    {
+        _vlans = await Http.GetFromJsonAsync<List<HostNetworkVlanDto>>("host/network/vlan/");
+        if (_vlans != null)
+            foreach (var vlan in _vlans)
+            {
+                _interfaceNames.Add("vl: " + vlan.Name);
+                foreach (var address in vlan.Addresses)
+                    _addresses.Add(address);
+            }
+
+        _bridges = await Http.GetFromJsonAsync<List<HostNetworkBridgeDto>>("host/network/bridge/");
+        if (_bridges != null)
+            foreach (var bridge in _bridges)
+            {
+                _interfaceNames.Add("br: " + bridge.Name);
+                foreach (var address in bridge.Addresses)
+                    _addresses.Add(address);
+            }
+    }
+    private async void Create()
+    {
+        var responseDhcp = await Http.PostAsJsonAsync("dhcp/", _newDhcp);
+        if (responseDhcp.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Success", Severity.Success, options => options.CloseAfterNavigation = true);
+            await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
+        }
+        else
+        {
+            var errorContent = await responseDhcp.Content.ReadAsStringAsync();
+            var validationErrors = JsonSerializer.Deserialize<ValidationErrorDto>(errorContent)!;
+
+            foreach (var error in validationErrors.Errors)
+            {
+                Snackbar.Add($"{error.Field + ": " + error.Error}", Severity.Error, options => options.CloseAfterNavigation = true);
+            }
+        }
+    }
+    private List<string> GetIPs(string interfaceName)
+    {
+        if (_bridges != null)
+            foreach (var bridge in _bridges.Where(bridge => interfaceName == bridge.Name))
+                return bridge.Addresses;
+
+        if (_vlans != null)
+            foreach (var vlan in _vlans.Where(vlan => interfaceName == vlan.Name))
+                return vlan.Addresses;
+
+        return new List<string>();
+    }
+}

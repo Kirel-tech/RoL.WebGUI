@@ -1,0 +1,84 @@
+﻿@page "/DHCPServerUpdate"
+@using RoL.Dtos.DHCPDtos
+@using System.Text.Json
+@using RoL.Dtos
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<MudDialog DisableSidePadding="true">
+    <DialogContent>
+        <MudContainer xs="12" Class="mx-auto pa-4 justify-center my-4 mud-text-align-center" Style="max-height: 700px; width: 400px; overflow-y: scroll">
+            <b>DNS</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_dhcpPutRequest.DNS" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>Lease time</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_dhcpPutRequest.LeaseTime" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>NTP</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_dhcpPutRequest.NTP" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>Port</b>
+            <MudItem xs="12">
+                <MudTextField Class="my-2" @bind-Value="@_dhcpPutRequest.Port" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
+            </MudItem>
+            <MudDivider Class="mt-2 mb-1"/>
+            <b>Enabled</b>
+            <MudCheckBox @bind-Checked="@_dhcpPutRequest.Enabled" Size="Size.Large" Color="@Color.Primary">
+                Enabled: @_dhcpPutRequest.Enabled.ToString()
+            </MudCheckBox>
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary" OnClick="Update">Ok</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] 
+    MudDialogInstance MudDialog { get; set; }
+    
+    [Parameter] 
+    public DHCPServerDto Dhcp { get; set; } = new();
+
+    private DHCPServerUpdateDto _dhcpPutRequest = new();
+
+    void Cancel() => MudDialog.Cancel();
+
+    protected override void OnInitialized()
+    {
+        _dhcpPutRequest = new DHCPServerUpdateDto()
+        {
+            DNS = Dhcp.DNS,
+            LeaseTime = Dhcp.LeaseTime,
+            NTP = Dhcp.NTP,
+            Port = Dhcp.Port,
+            Enabled = Dhcp.Enabled
+        };
+    }
+    private async void Update()
+    {
+        var response = await Http.PutAsJsonAsync("dhcp/" + Dhcp.Id, _dhcpPutRequest);
+        if (response.IsSuccessStatusCode)
+        {
+            await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
+            Snackbar.Add("Success", Severity.Success, options => options.CloseAfterNavigation = true);
+        }
+        else
+        {
+            var errorContent = await response.Content.ReadAsStringAsync();
+            var validationErrors = JsonSerializer.Deserialize<ValidationErrorDto>(errorContent)!;
+
+            foreach (var error in validationErrors.Errors)
+            {
+                Snackbar.Add($"{error.Field + ": " + error.Error}", Severity.Error, options => options.CloseAfterNavigation = true);
+            }
+        }
+    }
+}

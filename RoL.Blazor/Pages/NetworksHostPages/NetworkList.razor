@@ -1,0 +1,181 @@
+﻿@page "/Networks"
+@using RoL.Dtos.HostNetworkDtos
+@inject HttpClient Http
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Networks</PageTitle>
+<MudButton Class = "float-xxl-end mr-2 mt-2" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Save"  Color="Color.Info" @onclick="@(SaveChanges)"  Size="Size.Small">Save</MudButton>
+<MudGrid>
+    <MudItem xs="6">
+        <MudTable Filter="new Func<HostNetworkBridgeDto, bool>(BridgesFilterFunc)" Bordered="@true" Striped="@true" Dense="@true" Items="_bridges" Breakpoint="Breakpoint.Sm" Hover="true" Loading="@_loading">
+            <ToolBarContent>
+                <MudIconButton Class="float-left" Icon="@Icons.Material.Rounded.Add" Color="Color.Dark" OnClick="@(() => ShowCreateDialog<BridgeCreateDialog>("Create Bridge"))" aria-label="add"></MudIconButton>
+                <MudText Class="small">Add Bridge</MudText>
+                <MudSpacer/>
+                <MudTextField @bind-Value="_searchString" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Small" Class="mt-0"></MudTextField>
+            </ToolBarContent>
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Addresses</MudTh>
+                <MudTh>Slaves</MudTh>
+                <MudTh>Options</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Name">@context.Name</MudTd>
+                <MudTd DataLabel="Addresses">
+                    @foreach (var addsress in context.Addresses)
+                    {
+                        @addsress<br>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Slaves">
+                    @foreach (var slave in context.Slaves)
+                    {
+                        @slave<br>
+                    }
+                </MudTd>
+                <MudTd Style="white-space: nowrap; width: 1%;" DataLabel="Options">
+                    <MudMenu Label="Options" Size="Size.Small" Dense="true" FullWidth="true" Direction="Direction.Start">
+                        <MudMenuItem OnClick="@(() => ShowUpdateDialog<HostNetworkBridgeDto, BridgeUpdateDialog>(context, "Bridge", "Edit Bridge"))">Edit</MudMenuItem>
+                        <MudMenuItem OnClick="@(() => Delete(context.Name, "bridge"))">Delete</MudMenuItem>
+                    </MudMenu>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText>No matching records found</MudText>
+            </NoRecordsContent>
+            <LoadingContent>
+                <MudText>Loading...</MudText>
+            </LoadingContent>
+            <PagerContent>
+                <MudTablePager/>
+            </PagerContent>
+        </MudTable>
+    </MudItem>
+    <MudItem xs="6">
+    <MudTable Filter="new Func<HostNetworkVlanDto, bool>(VlansFilterFunc)" Bordered="@true" Striped="@true" Dense="@true" Items="_vlans" Breakpoint="Breakpoint.Sm" Hover="true" Loading="@_loading">
+        <ToolBarContent>
+            <MudIconButton Class="float-right" Icon="@Icons.Material.Rounded.Add" Color="Color.Dark" OnClick="@(() => ShowCreateDialog<VlanCreateDialog>("Create Vlan"))" aria-label="add"></MudIconButton>
+            <MudText Class="small">Add Vlan</MudText>
+            <MudSpacer/>
+            <MudTextField @bind-Value="_searchString" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Small" Class="mt-0"></MudTextField>
+        </ToolBarContent>
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Addresses</MudTh>
+            <MudTh>VlanId</MudTh>
+            <MudTh>Parent</MudTh>
+            <MudTh>Options</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Name">@context.Name</MudTd>
+            <MudTd DataLabel="Addresses">
+                @foreach (var address in context.Addresses)
+                {
+                    @address<br>
+                }
+            </MudTd>
+            <MudTd DataLabel="VlanId">@context.VlanId</MudTd>
+            <MudTd DataLabel="Parent">@context.Parent</MudTd>
+            <MudTd Style="white-space: nowrap; width: 1%;" DataLabel="Options">
+                <MudMenu Label="Options" Size="Size.Small" Dense="true" FullWidth="true" Direction="Direction.Start">
+                    <MudMenuItem OnClick="@(() => ShowUpdateDialog<HostNetworkVlanDto, VlanUpdateDialog>(context, "Vlan", "Edit Vlan"))">Edit</MudMenuItem>
+                    <MudMenuItem OnClick="@(() => Delete(context.Name, "vlan"))">Delete</MudMenuItem>
+                </MudMenu>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText>No matching records found</MudText>
+        </NoRecordsContent>
+        <LoadingContent>
+            <MudText>Loading...</MudText>
+        </LoadingContent>
+        <PagerContent>
+            <MudTablePager/>
+        </PagerContent>
+    </MudTable>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private string _searchString = "";
+    private bool _loading;
+    
+    private IEnumerable<HostNetworkBridgeDto>? _bridges = new List<HostNetworkBridgeDto>();
+    private IEnumerable<HostNetworkVlanDto>? _vlans = new List<HostNetworkVlanDto>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await GetListDataFromServer();
+    }
+
+    private async void SaveChanges()
+    {
+        await Http.GetAsync("host/network/ping");
+        Snackbar.Add("Success", Severity.Success, options => options.CloseAfterNavigation = true);
+    }
+    
+    private async Task GetListDataFromServer(bool stateHasChanged = false)
+    {
+        _loading = true;
+        var responseBridges = await Http.GetFromJsonAsync<List<HostNetworkBridgeDto>>("host/network/bridge/");
+        await Task.Run(() => {_bridges = responseBridges;});
+        var responseVlans = await Http.GetFromJsonAsync<List<HostNetworkVlanDto>>("host/network/vlan/");
+        await Task.Run(() => {_vlans = responseVlans;});
+        
+        _loading = false;
+        if (stateHasChanged)
+            StateHasChanged();
+    }
+    private async void ShowCreateDialog<TComponent>(string title) where TComponent : ComponentBase
+    {
+        var dialog = DialogService.Show<TComponent>(title);
+        var result = await dialog.Result;
+        if (result.Cancelled) return;
+        await GetListDataFromServer(true);
+    }
+    private async void Delete(string name, string hostName)
+    {
+        var parameters = new DialogParameters {{"EntityName", "delete"}};
+        var result = await DialogService.Show<DeleteDialog>("Delete", parameters).Result;
+        if (result.Cancelled) return;
+        
+        await Http.DeleteAsync($"host/network/{hostName}/{name}");
+        await GetListDataFromServer(true);
+    }
+    private async void ShowUpdateDialog<TDto, TComponent>(TDto dto, string paramName, string title) where TComponent : ComponentBase
+    {
+        var parameters = new DialogParameters { [paramName] = dto };
+        var dialog = DialogService.Show<TComponent>(title, parameters);
+        var result = await dialog.Result;
+        if (result.Cancelled) return;
+        await GetListDataFromServer(true);
+    }
+    private bool BridgesFilterFunc(HostNetworkBridgeDto bridge)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+        if (bridge.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (bridge.Addresses.Any(address => address.Contains(_searchString, StringComparison.OrdinalIgnoreCase)))
+            return true;
+        if (bridge.Slaves.Any(slave => slave.Contains(_searchString, StringComparison.OrdinalIgnoreCase)))
+            return true;
+        return false;
+    }
+    private bool VlansFilterFunc(HostNetworkVlanDto vlan)
+    {
+        if (string.IsNullOrWhiteSpace(_searchString))
+            return true;
+        if (vlan.Name.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (vlan.Addresses.Any(address => address.Contains(_searchString, StringComparison.OrdinalIgnoreCase)))
+            return true;
+        if (vlan.Parent.Contains(_searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if ($"{vlan.VlanId}".Contains(_searchString))
+            return true;
+        return false;
+    }
+}
