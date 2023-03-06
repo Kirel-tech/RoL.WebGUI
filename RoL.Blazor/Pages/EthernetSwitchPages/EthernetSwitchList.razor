@@ -1,12 +1,13 @@
-﻿@page "/EthernetSwitchList"
+﻿@page "/ethernetSwitches"
 @using RoL.Dtos
 @using System.Text
 @using RoL.Dtos.EthernetSwitchDtos
 @inject HttpClient Http
 @inject IDialogService DialogService
+@inject ISnackbar Snackbar
 
 <style>
-    div.myClass > div > div {
+    div.border-card-toolbar > div > div {
         border-bottom: 1px solid lightgrey;
     }
 </style>
@@ -64,7 +65,7 @@
         <MudTr>
         <td colspan="10">
             <MudCard Elevation="0">
-                <MudCardContent Class="pa-2 myClass">
+                <MudCardContent Class="pa-2 border-card-toolbar">
                     <MudGrid>
                     <MudItem xs="6">
                         <MudTable Items="@_ethernetSwitchPorts[context.Id]" Context="Ports"  Hover="true" Breakpoint="Breakpoint.Sm" Elevation="1" HeaderClass="table-head-bordered border-bottom">
@@ -159,11 +160,9 @@
         <MudTablePager/>
     </PagerContent>
 </MudTable>
-<SnackBars @ref="_snackBars"></SnackBars>
 
 @code {
     private string _searchString = "";
-    private SnackBars? _snackBars;
     private bool _loading;
     private MudTable<EthernetSwitchDto>? _table;
     private List<EthernetSwitchModelDto>? _models;

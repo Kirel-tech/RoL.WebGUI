@@ -3,6 +3,7 @@
 @using System.Text.Json
 @using RoL.Dtos
 @inject HttpClient Http
+@inject ISnackbar Snackbar
 
 <MudDialog DisableSidePadding="true">
     <DialogContent>
@@ -38,15 +39,14 @@
         <MudButton Color="Color.Primary" OnClick="Update">Ok</MudButton>
     </DialogActions>
 </MudDialog>
-<SnackBars @ref="_snackBars"></SnackBars>
+
 @code {
-    
-    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+    [CascadingParameter] 
+    MudDialogInstance MudDialog { get; set; }
     
     [Parameter] 
     public DHCPServerDto Dhcp { get; set; } = new();
 
-    private SnackBars? _snackBars;
     private DHCPServerUpdateDto _dhcpPutRequest = new();
 
     void Cancel() => MudDialog.Cancel();
@@ -68,7 +68,7 @@
         if (response.IsSuccessStatusCode)
         {
             await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
-            if (_snackBars != null) await _snackBars.ShowSuccess();
+            Snackbar.Add("Success", Severity.Success, options => options.CloseAfterNavigation = true);
         }
         else
         {
@@ -77,7 +77,7 @@
 
             foreach (var error in validationErrors.Errors)
             {
-                if (_snackBars != null) await _snackBars.ShowError($"{error.Field + ": " + error.Error}");
+                Snackbar.Add($"{error.Field + ": " + error.Error}", Severity.Error, options => options.CloseAfterNavigation = true);
             }
         }
     }

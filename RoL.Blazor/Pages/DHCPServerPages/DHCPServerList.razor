@@ -1,4 +1,4 @@
-﻿@page "/DHCPServerList"
+﻿@page "/dhcps"
 @using RoL.Dtos
 @using RoL.Dtos.DHCPDtos
 @using System.Text
@@ -6,7 +6,7 @@
 @inject IDialogService DialogService
 
 <style>
-    div.myClass > div > div {
+    div.card-content-bottom-border > div > div {
         border-bottom: 1px solid lightgrey;
     }
 </style>
@@ -86,7 +86,7 @@
       <MudTr>
        <td colspan="13">
     	<MudCard Elevation="0">
-            <MudCardContent Class="pa-0 myClass">
+            <MudCardContent Class="pa-0 card-content-bottom-border">
                 <MudTable Items="@_dhcpLeases[context.Id]" Context="Lease" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="1" HeaderClass="table-head-bordered border-bottom">
                     <ToolBarContent>
                         <MudText Class="small">Add lease </MudText>
@@ -130,11 +130,9 @@
         <MudTablePager/>
     </PagerContent>
 </MudTable>
-<SnackBars @ref="_snackBars"></SnackBars>
 
 @code {
     private string _searchString = "";
-    private SnackBars? _snackBars;
     private bool _loading;
     private MudTable<DHCPServerDto>? _table;
 

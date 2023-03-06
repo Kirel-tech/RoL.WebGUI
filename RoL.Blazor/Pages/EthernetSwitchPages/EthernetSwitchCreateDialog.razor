@@ -3,6 +3,7 @@
 @using System.Text.Json
 @using RoL.Dtos
 @inject HttpClient Http
+@inject ISnackbar Snackbar
 
 <MudDialog DisableSidePadding="true">
     <DialogContent>
@@ -52,12 +53,11 @@
         <MudButton Color="Color.Primary" OnClick="Create">Ok</MudButton>
     </DialogActions>
 </MudDialog>
-<SnackBars @ref="_snackBars"></SnackBars>
 
 @code {
-    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+    [CascadingParameter] 
+    MudDialogInstance MudDialog { get; set; }
 
-    private SnackBars? _snackBars;
     private EthernetSwitchCreateDto _newEthernetSwitch = new();
     private List<EthernetSwitchModelDto>? _models = new();
 
@@ -73,7 +73,7 @@
 
         if (responseEthernetSwitch.IsSuccessStatusCode)
         {
-            if (_snackBars != null) await _snackBars.ShowSuccess();
+            Snackbar.Add("Success", Severity.Success, options => options.CloseAfterNavigation = true);
             await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
         }
         else
@@ -83,7 +83,7 @@
             
             foreach (var error in validationErrors.Errors)
             {
-                if (_snackBars != null) await _snackBars.ShowError($"{error.Field + ": " + error.Error}");
+                Snackbar.Add($"{error.Field + ": " + error.Error}", Severity.Error, options => options.CloseAfterNavigation = true);
             }
         }
     }

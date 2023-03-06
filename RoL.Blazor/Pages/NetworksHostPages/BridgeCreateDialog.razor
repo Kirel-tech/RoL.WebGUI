@@ -3,6 +3,7 @@
 @using System.Text.Json
 @using RoL.Dtos
 @inject HttpClient Http
+@inject ISnackbar Snackbar
 
 <MudDialog  DisableSidePadding="true">
     <DialogContent>
@@ -13,7 +14,7 @@
             </MudItem>
             <MudDivider Class="mt-2 mb-1"></MudDivider>
             <b>Address</b>
-            @foreach (var address in addresses)
+            @foreach (var address in _addresses)
             {
                 <MudItem xs="12" Class="d-flex flex-row">
                     <MudTextField Class="mr-1" @bind-Value="@address.Item" Variant="Variant.Outlined" Margin="Margin.Dense"></MudTextField>
@@ -23,7 +24,7 @@
             <MudIconButton Class="d-flex flex-row my-n1" Icon="@Icons.Material.Rounded.Add" OnClick="@AddAddress" Color="Color.Success" aria-label="add"></MudIconButton>
             <MudDivider Class="mt-2 mb-1"></MudDivider>
             <b>Slaves</b>
-            @foreach (var slave in slaves)
+            @foreach (var slave in _slaves)
             {
                 <MudItem xs="12" Class="d-flex flex-row">
                     <MudSelect Class="ml-1" @bind-Value="@slave.Item" Variant="Variant.Outlined" Margin="Margin.Dense">
@@ -43,20 +44,19 @@
         <MudButton Color="Color.Primary" OnClick="Create">Ok</MudButton>
     </DialogActions>
 </MudDialog>
-<SnackBars @ref="_snackBars"></SnackBars>
+
 @code {
     [CascadingParameter]
     MudDialogInstance MudDialog { get; set; }
     
-    private SnackBars _snackBars;
     private HostNetworkBridgeCreateDto _newBridge = new();
-    private List<StringItem> addresses = new();
-    private List<StringItem> slaves = new();
+    private readonly List<StringItem> _addresses = new();
+    private readonly List<StringItem> _slaves = new();
     private List<HostNetworkVlanDto>? _vlans = new();
 
     public class StringItem
     {
-        public string Item { get; set; }
+        public string Item { get; set; } = "";
     }
     
     void Cancel() => MudDialog.Cancel();
@@ -65,12 +65,12 @@
     {
         _newBridge.Addresses = new List<string>();
         _newBridge.Slaves = new List<string>();
-        _newBridge.Slaves.AddRange(slaves.Select(s => s.Item));
-        _newBridge.Addresses.AddRange(addresses.Select(a => a.Item));
+        _newBridge.Slaves.AddRange(_slaves.Select(s => s.Item));
+        _newBridge.Addresses.AddRange(_addresses.Select(a => a.Item));
         var response = await Http.PostAsJsonAsync("host/network/bridge/", _newBridge);
         if (response.IsSuccessStatusCode)
         {
-            await _snackBars.ShowSuccess();
+            Snackbar.Add("Success", Severity.Success, options => options.CloseAfterNavigation = true);
             await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
         }
         else
@@ -80,25 +80,25 @@
 
             foreach (var error in validationErrors.Errors)
             {
-                if (_snackBars != null) await _snackBars.ShowError($"{error.Field + ": " + error.Error}");
+                Snackbar.Add($"{error.Field + ": " + error.Error}", Severity.Error, options => options.CloseAfterNavigation = true);
             }
         }
     }
     private void AddAddress()
     {
-        addresses.Add(new StringItem(){Item = string.Empty});
+        _addresses.Add(new StringItem(){Item = string.Empty});
     }
     private void DeleteAddress(StringItem address)
     {
-        addresses.Remove(address);
+        _addresses.Remove(address);
     }
     private void AddSlaves()
     {
-        slaves.Add(new StringItem(){Item = string.Empty});
+        _slaves.Add(new StringItem(){Item = string.Empty});
     }
     private void DeleteSlave(StringItem slave)
     {
-        slaves.Remove(slave);
+        _slaves.Remove(slave);
     }
     protected override async Task OnInitializedAsync()
     {

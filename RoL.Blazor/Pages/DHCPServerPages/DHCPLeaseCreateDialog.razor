@@ -1,9 +1,9 @@
 ﻿@page "/DHCPLeaseCreateDialog"
 @using RoL.Dtos.DHCPDtos
 @using System.Text.Json
-@using MudBlazor.Extensions
 @using RoL.Dtos
 @inject HttpClient Http
+@inject ISnackbar Snackbar
 
 <MudDialog DisableSidePadding="true">
     <DialogContent>
@@ -30,7 +30,6 @@
         <MudButton Color="Color.Primary" OnClick="Create">Ok</MudButton>
     </DialogActions>
 </MudDialog>
-<SnackBars @ref="_snackBars"></SnackBars>
 
 @code {
     [CascadingParameter]
@@ -39,7 +38,6 @@
     [Parameter]
     public string DhcpId { get; set; } = "";
 
-    private SnackBars? _snackBars;
     private readonly DHCPLeaseCreateDto _newLease = new();
     private DateTime? _expiresCalendarNumber;
     private TimeSpan? _expiresTime;
@@ -50,7 +48,7 @@
     {
         if (_expiresCalendarNumber == null && _expiresTime == null)
         {
-            if (_snackBars != null) await _snackBars.ShowError("ExpiresTime value does not contain the necessary data");
+            Snackbar.Add("ExpiresTime value does not contain the necessary data", Severity.Error, options => options.CloseAfterNavigation = true);
             return;
         }
 
@@ -61,7 +59,7 @@
         var responseLease = await Http.PostAsJsonAsync($"dhcp/{DhcpId}/lease/", _newLease);
         if (responseLease.IsSuccessStatusCode)
         {
-            if (_snackBars != null) await _snackBars.ShowSuccess();
+            Snackbar.Add("Success", Severity.Success, options => options.CloseAfterNavigation = true);
             await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
         }
         else
@@ -71,7 +69,7 @@
 
             foreach (var error in validationErrors.Errors)
             {
-                if (_snackBars != null) await _snackBars.ShowError($"{error.Field + ": " + error.Error}");
+                Snackbar.Add($"{error.Field + ": " + error.Error}", Severity.Error, options => options.CloseAfterNavigation = true);
             }
         }
     }

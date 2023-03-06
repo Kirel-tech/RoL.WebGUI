@@ -3,6 +3,7 @@
 @using RoL.Dtos
 @using System.Text.Json
 @inject HttpClient Http
+@inject ISnackbar Snackbar
 
 <MudDialog  DisableSidePadding="true">
     <DialogContent>
@@ -46,7 +47,7 @@
         <MudButton Color="Color.Primary" OnClick="Create">Ok</MudButton>
     </DialogActions>
 </MudDialog>
-<SnackBars @ref="_snackBars"></SnackBars>
+
 @code {
     [CascadingParameter]
     MudDialogInstance MudDialog { get; set; }
@@ -54,7 +55,6 @@
     [Parameter]
     public string EthernetSwitchId { get; set; } = "";
     
-    private SnackBars? _snackBars;
     private EthernetSwitchPortCreateDto _newPort= new();
     private List<int>? _vlansId = new();
     
@@ -65,7 +65,7 @@
         var response = await Http.PostAsJsonAsync($"ethernet-switch/{EthernetSwitchId}/port/", _newPort);
         if (response.IsSuccessStatusCode)
         {
-            if (_snackBars != null) await _snackBars.ShowSuccess();
+            Snackbar.Add("Success", Severity.Success, options => options.CloseAfterNavigation = true);
             await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
         }
         else
@@ -75,7 +75,7 @@
 
             foreach (var error in validationErrors.Errors)
             {
-                if (_snackBars != null) await _snackBars.ShowError($"{error.Field + ": " + error.Error}");
+                Snackbar.Add($"{error.Field + ": " + error.Error}", Severity.Error, options => options.CloseAfterNavigation = true);
             }
         }
     }

@@ -2,6 +2,7 @@
 @using RoL.Dtos.HostNetworkDtos
 @inject HttpClient Http
 @inject IDialogService DialogService
+@inject ISnackbar Snackbar
 
 <PageTitle>Networks</PageTitle>
 <MudButton Class = "float-xxl-end mr-2 mt-2" Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Save"  Color="Color.Info" @onclick="@(SaveChanges)"  Size="Size.Small">Save</MudButton>
@@ -70,9 +71,9 @@
         <RowTemplate>
             <MudTd DataLabel="Name">@context.Name</MudTd>
             <MudTd DataLabel="Addresses">
-                @foreach (var addsress in context.Addresses)
+                @foreach (var address in context.Addresses)
                 {
-                    @addsress<br>
+                    @address<br>
                 }
             </MudTd>
             <MudTd DataLabel="VlanId">@context.VlanId</MudTd>
@@ -96,11 +97,9 @@
     </MudTable>
     </MudItem>
 </MudGrid>
-<SnackBars @ref="_snackBars"></SnackBars>
 
 @code {
     private string _searchString = "";
-    private SnackBars? _snackBars;
     private bool _loading;
     
     private IEnumerable<HostNetworkBridgeDto>? _bridges = new List<HostNetworkBridgeDto>();
@@ -114,7 +113,7 @@
     private async void SaveChanges()
     {
         await Http.GetAsync("host/network/ping");
-        if (_snackBars != null) await _snackBars.ShowSuccess();
+        Snackbar.Add("Success", Severity.Success, options => options.CloseAfterNavigation = true);
     }
     
     private async Task GetListDataFromServer(bool stateHasChanged = false)
@@ -177,7 +176,6 @@
             return true;
         if ($"{vlan.VlanId}".Contains(_searchString))
             return true;
-        
         return false;
     }
 }

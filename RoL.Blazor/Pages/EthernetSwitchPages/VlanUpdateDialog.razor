@@ -3,6 +3,7 @@
 @using RoL.Dtos
 @using System.Text.Json
 @inject HttpClient Http
+@inject ISnackbar Snackbar
 
 <MudDialog DisableSidePadding="true">
     <DialogContent>
@@ -43,7 +44,6 @@
         <MudButton Color="Color.Primary" OnClick="Update">Ok</MudButton>
     </DialogActions>
 </MudDialog>
-<SnackBars @ref="_snackBars"></SnackBars>
 
 @code {
     [CascadingParameter]
@@ -54,11 +54,10 @@
     [Parameter]
     public EthernetSwitchVlanDto Vlan { get; set; } = new();
 
-    private SnackBars? _snackBars;
     private EthernetSwitchVlanUpdateDto _vlanPutRequest = new();
     private List<PortSelectItem> _taggedPorts = new();
     private List<PortSelectItem> _untaggedPorts = new();
-    private List<EthernetSwitchPortDto>? _ports = new();
+    private List<EthernetSwitchPortDto> _ports = new();
     
     public class PortSelectItem
     {
@@ -107,7 +106,7 @@
         var responseVlan = await Http.PutAsJsonAsync($"ethernet-switch/{EthernetSwitchId}/vlan/{Vlan.Id}", _vlanPutRequest);
         if (responseVlan.IsSuccessStatusCode)
         {
-            if (_snackBars != null) await _snackBars.ShowSuccess();
+            Snackbar.Add("Success", Severity.Success, options => options.CloseAfterNavigation = true);
             await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
         }
         else
@@ -117,7 +116,7 @@
 
             foreach (var error in validationErrors.Errors)
             {
-                if (_snackBars != null) await _snackBars.ShowError($"{error.Field + ": " + error.Error}");
+                Snackbar.Add($"{error.Field + ": " + error.Error}", Severity.Error, options => options.CloseAfterNavigation = true);
             }
         }
     }

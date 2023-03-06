@@ -6,7 +6,7 @@
 @inject IDialogService DialogService
 
 <style>
-    div.myClass > div > div{
+    div.border-card-toolbar > div > div{
         border-bottom: 1px solid lightgrey;
     }
 </style>
@@ -78,7 +78,7 @@
       <MudTr>
        <td colspan="9">
     	<MudCard Elevation="0">
-            <MudCardContent Class="pa-0 myClass">
+            <MudCardContent Class="pa-0 border-card-toolbar">
                 <MudTable Items="@_tftpPaths[context.Id]" Context="Paths" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="1" HeaderClass="table-head-bordered border-bottom">
                     <ToolBarContent>
                         <MudText Class="small">Add Path </MudText>
@@ -119,11 +119,9 @@
         <MudTablePager/>
     </PagerContent>
 </MudTable>
-<SnackBars @ref="_snackBars"></SnackBars>
 
 @code {
     private string _searchString = "";
-    private SnackBars? _snackBars;
     private bool _loading;
     private MudTable<TftpServerDto>? _table;
 

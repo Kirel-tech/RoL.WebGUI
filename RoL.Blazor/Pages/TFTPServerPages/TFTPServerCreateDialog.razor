@@ -3,6 +3,7 @@
 @using System.Text.Json
 @using RoL.Dtos
 @inject HttpClient Http
+@inject ISnackbar Snackbar
 
 <MudDialog DisableSidePadding="true">
     <DialogContent>
@@ -28,13 +29,11 @@
         <MudButton Color="Color.Primary" OnClick="Create">Ok</MudButton>
     </DialogActions>
 </MudDialog>
-<SnackBars @ref="_snackBars"></SnackBars>
 
 @code {
     [CascadingParameter]
     MudDialogInstance MudDialog { get; set; }
     
-    private SnackBars? _snackBars;
     private TftpServerCreateDto _newTftp = new();
     private List<TftpPathCreateDto> _newPaths = new();
 
@@ -46,11 +45,11 @@
         var dto = await responseTftp.Content.ReadFromJsonAsync<TftpServerDto>();
         foreach (var newPath in _newPaths)
         {
-            var responsePath = await Http.PostAsJsonAsync($"tftp/{dto.Id}/path/", newPath);
+            var responsePath = await Http.PostAsJsonAsync($"tftp/{dto?.Id}/path/", newPath);
         }
         if (responseTftp.IsSuccessStatusCode)
         {
-            if (_snackBars != null) await _snackBars.ShowSuccess();
+            Snackbar.Add("Success", Severity.Success, options => options.CloseAfterNavigation = true);
             await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
         }
         else
@@ -60,16 +59,8 @@
 
             foreach (var error in validationErrors.Errors)
             {
-                if (_snackBars != null) await _snackBars.ShowError($"{error.Field + ": " + error.Error}");
+                Snackbar.Add($"{error.Field + ": " + error.Error}", Severity.Error, options => options.CloseAfterNavigation = true);
             }
         }
-    }
-    private void AddPath()
-    {
-        _newPaths.Add(new TftpPathCreateDto());
-    }
-    private void DeletePath(TftpPathCreateDto path)
-    {
-        _newPaths.Remove(path);
     }
 }

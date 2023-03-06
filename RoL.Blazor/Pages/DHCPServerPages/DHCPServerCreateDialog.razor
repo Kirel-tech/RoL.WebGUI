@@ -4,6 +4,7 @@
 @using System.Text.Json
 @using RoL.Dtos
 @inject HttpClient Http
+@inject ISnackbar Snackbar
 
 <MudDialog DisableSidePadding="true">
     <DialogContent>
@@ -26,14 +27,12 @@
             <b>Gateway</b>
             <MudItem xs="12">
                 <MudSelect Class="ml-1" @bind-Value="@_newDhcp.Gateway" Variant="Variant.Outlined" Margin="Margin.Dense">
-                    @{
-                        if (_newDhcp.Interface != "")
+                    @if (_newDhcp.Interface != "")
+                    {
+                        var iPs = GetIPs(_newDhcp.Interface);
+                        foreach (var ip in iPs)
                         {
-                            var iPs = GetIPs(_newDhcp.Interface);
-                            foreach (var ip in iPs)
-                            {
-                                <MudSelectItem Value="@ip[..^3]">@ip[..^3]</MudSelectItem>
-                            }
+                            <MudSelectItem Value="@ip[..^3]">@ip[..^3]</MudSelectItem>
                         }
                     }
                 </MudSelect>    
@@ -42,8 +41,7 @@
             <b>Server ID</b>
             <MudItem xs="12" Class="d-flex flex-row">
             <MudSelect Class="ml-1" @bind-Value="@_newDhcp.ServerId" Variant="Variant.Outlined" Margin="Margin.Dense">
-                @{
-                if (_newDhcp.Interface != "")
+               @if (_newDhcp.Interface != "")
                 {
                     var iPs = GetIPs(_newDhcp.Interface);
                     foreach (var ip in iPs)
@@ -51,7 +49,6 @@
                         <MudSelectItem Value="@ip[..^3]">@ip[..^3]</MudSelectItem>
                     }
                 }
-            }
             </MudSelect>
             </MudItem>
             <MudDivider Class="mt-2 mb-1"/>
@@ -91,12 +88,10 @@
         <MudButton Color="Color.Primary" OnClick="Create">Ok</MudButton>
     </DialogActions>
 </MudDialog>
-<SnackBars @ref="_snackBars"></SnackBars>
 
 @code {
     [CascadingParameter] MudDialogInstance MudDialog { get; set; }
 
-    private SnackBars? _snackBars;
     private DHCPServerCreateDto _newDhcp = new();
     private List<string> _interfaceNames = new();
     private List<string> _addresses = new();
@@ -130,7 +125,7 @@
         var responseDhcp = await Http.PostAsJsonAsync("dhcp/", _newDhcp);
         if (responseDhcp.IsSuccessStatusCode)
         {
-            if (_snackBars != null) await _snackBars.ShowSuccess();
+            Snackbar.Add("Success", Severity.Success, options => options.CloseAfterNavigation = true);
             await Task.Run(() => MudDialog.Close(DialogResult.Ok(true)));
         }
         else
@@ -140,7 +135,7 @@
 
             foreach (var error in validationErrors.Errors)
             {
-                if (_snackBars != null) await _snackBars.ShowError($"{error.Field + ": " + error.Error}");
+                Snackbar.Add($"{error.Field + ": " + error.Error}", Severity.Error, options => options.CloseAfterNavigation = true);
             }
         }
     }
