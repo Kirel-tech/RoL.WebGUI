@@ -8,9 +8,11 @@
     </DialogActions>
 </MudDialog>
 @code {
-    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+    [CascadingParameter] 
+    MudDialogInstance MudDialog { get; set; }
 
-    [Parameter] public string EntityName { get; set; }
+    [Parameter] 
+    public string EntityName { get; set; }
 
     void Submit() => MudDialog.Close(DialogResult.Ok(true));
     void Cancel() => MudDialog.Cancel();

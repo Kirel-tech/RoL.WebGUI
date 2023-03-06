@@ -20,4 +20,8 @@
       <_ContentIncludedByDefault Remove="Pages\VlanHostPages\Vlans.razor" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="wwwroot\sample-data" />
+    </ItemGroup>
+
 </Project>
